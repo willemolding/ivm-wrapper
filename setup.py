@@ -15,7 +15,7 @@ setup(
     version = "1.0.0",
     author = "Willem Olding",
     author_email = "willemolding@gmail.com",
-    description = ("Python wrappers for the Matlab code for the Import Vector Machine (IVM) classifier from the University of Bonn"),
+    description = ("Python wrappers for the Matlab code for the Import Vector Machine (IVM) classifier from Freie University"),
     packages=['ivm'],
     install_requires=['scikit-learn', 'matlabengineforpython'],
     include_package_data=True,

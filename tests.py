@@ -19,8 +19,3 @@ class TestIVM(TestCase):
 	def test_fit_precict(self):
 		data = datasets.load_iris()
 		print cross_val_score(self.clf, data.data, data.target)
-
-
-
-
-

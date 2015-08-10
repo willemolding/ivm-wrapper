@@ -1,7 +1,9 @@
 import os
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
+import matlab
 import matlab.engine
+
 
 class IVM(BaseEstimator, ClassifierMixin):
     """Import Vector Machine Classifier
@@ -123,7 +125,7 @@ class IVM(BaseEstimator, ClassifierMixin):
     	X_mlarray = matlab.double(X.T.tolist())
     	y_mlarray = matlab.double(y.tolist(), size=(y.size,1))
 
-        self.model = self.engine.ivm_learn(X_mlarray, y_mlarray, 
+        self.model = self.engine.ivm_learn(X_mlarray, y_mlarray,
         									self._get_matlab_params_dict())
 
         # set the attributes from training

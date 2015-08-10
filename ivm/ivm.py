@@ -2,8 +2,7 @@ import os
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 
-from mlabwrap import mlab #if you get 'error cannot start Matlab(TM)' then install csh - 'sudo apt-get install csh'
-
+from mlabwrap import mlab
 
 class IVM(BaseEstimator, ClassifierMixin):
     """Import Vector Machine Classifier
@@ -18,68 +17,70 @@ class IVM(BaseEstimator, ClassifierMixin):
     Parameters
     ----------
     sigma : float, optional
-    	Kernel paramter
+        Kernel paramter
 
     _lambda : float, optional
-    	regularization paramter
+        regularization paramter
 
     Nadd : int or inf, optional
-    	maximum number of points tested for adding to the subset (inf takes all points)
+        maximum number of points tested for adding to the subset (inf takes all points)
 
     output : int (0 or 1), optional
-    	display output (0: no output, 1: output)
+        display output (0: no output, 1: output)
 
     maxIter : int or inf, optional
-    	maximum number of iterations (maximum number of import vectors, inf tests all points)
+        maximum number of iterations (maximum number of import vectors, inf tests all points)
 
     epsilon : float, optional
-    	stopping criterion for convergence proof
+        stopping criterion for convergence proof
 
     delta_k : float, optional
-    	interval for computing the ratio of the negative loglikelihood
+        interval for computing the ratio of the negative loglikelihood
 
     tempInt : float, optional
-    	temporal filtering, 1: no filtering, 0.5: average between old and new
-		parameters (params.tempInit < 1 is more stable, but converges slower)
+        temporal filtering, 1: no filtering, 0.5: average between old and new
+        parameters (params.tempInit < 1 is more stable, but converges slower)
 
-	epsilonBack : float, optional
-		threshold on the function value for backward selection, if an import 
-		vector is removed
+    epsilonBack : float, optional
+        threshold on the function value for backward selection, if an import 
+        vector is removed
 
-	flyComputeK : int (1 or 0), optional
-		compute kernel on the fly (use, if kernel is too large to compute it at once
+    flyComputeK : int (1 or 0), optional
+        compute kernel on the fly (use, if kernel is too large to compute it at once
 
-	deselect : int (1 or 0), optional
-		skip backward selection of import vector (computional cost descrease significantly)
+    deselect : int (1 or 0), optional
+        skip backward selection of import vector (computional cost descrease significantly)
 
     Attributes
     ----------
 
     import_ : array-like, shape = [n_IV]
-    	Indices of import vectors
+        Indices of import vectors
 
     n_import_ : int
-    	Number of support vectors
+        Number of support vectors
 
     alpha_ : array-like
-    	parameters of the decision hyperplane
+        parameters of the decision hyperplane
 
     References
     ----------
 
     .. [1] `Ji Zhu and Trevor Hastie (2005). "Kernel Logistic Regression and the Import Vector Machine". 
        Journal of Computational and Graphical Statistics  Vol. 14(1), pp. 185-205.
-    	<http://pubs.amstat.org/doi/abs/10.1198/106186005X25619>`_
+        <http://pubs.amstat.org/doi/abs/10.1198/106186005X25619>`_
 
     .. [2] `Ribana Roscher and Wolfgang Forstner and Bjorn Waske (2012). 
        "I2VM: Incremental import vector machines". Image and Vision Computing Vol. 30(4-5), pp. 263-278.
-    	<http://www.sciencedirect.com/science/article/pii/S0262885612000546>`_
+        <http://www.sciencedirect.com/science/article/pii/S0262885612000546>`_
 
     """
 
     def __init__(self, sigma = 0.2, _lambda = np.exp(-15), Nadd = 150, output = 0, maxIter = np.inf,
                 epsilon = 0.001, delta_k = 1, tempInt = 0.95, epsilon_back = 0.001, flyComputeK = 0,
-                deselect = 0):
+                deselect = 0, CV = None, lambdas = np.r_[[np.exp(-12)], np.exp(np.arange(-10,-3))], 
+                sigmas = np.sqrt(1. / (2. * 2.**np.arange(-5, 3)))):
+
         self.sigma = sigma
         self._lambda = _lambda
         self.Nadd = Nadd
@@ -91,17 +92,21 @@ class IVM(BaseEstimator, ClassifierMixin):
         self.epsilon_back = epsilon_back
         self.flyComputeK = flyComputeK
         self.deselect = deselect
+        self.CV = CV
+        self.lambdas = lambdas
+        self.sigmas = sigmas
 
-    	this_dir, this_filename = os.path.split(__file__)
-    	src_dir = os.path.join(this_dir, "ivmSoftware4.3/src")
 
-    	mlab.addpath(src_dir)
+        this_dir, this_filename = os.path.split(__file__)
+        src_dir = os.path.join(this_dir, "ivmSoftware4.3/src")
+
+        mlab.addpath(src_dir)
 
     def fit(self, X, y):
-    	"""
-    	Fits the IVM
+        """
+        Fits the IVM
 
-    	Parameters
+        Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
             Set of samples, where n_samples is the number of samples and
@@ -113,36 +118,24 @@ class IVM(BaseEstimator, ClassifierMixin):
             Returns self
         """
 
-    	self.classes_, y = np.unique(y, return_inverse=True)
-    	y = y + 1 #convert to matlab style indexing
+        self.classes_, y = np.unique(y, return_inverse=True)
+        y = y + 1 #convert to matlab style indexing
 
-    	param_struct = mlab.struct('sigma', self.sigma, 'lambda', self._lambda, 'Nadd', self.Nadd, 'output', self.output, 
-    		'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
-    		'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
+        if self.CV is None:
+            param_struct = mlab.struct('sigma', self.sigma, 'lambda', self._lambda, 'Nadd', self.Nadd, 'output', self.output, 
+                'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
+                'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
 
-        self.model = mlab.ivm_learn(X.T, y, param_struct)
+            self.model = mlab.ivm_learn(X.T, y, param_struct)
+        else:
+            param_struct = mlab.struct('sigmas', np.array(self.sigmas).reshape((1,-1)), 'lambdas', np.array(self.lambdas).reshape((1,-1)), 'CV', self.CV, 'Nadd', self.Nadd, 'output', self.output, 
+            'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
+            'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
 
-        # set the attributes from training (getting these attributes is too slow)
-        # self.import_ = self.model.S #the indices of the import vectors
-        # self.n_import_ = self.model.nIV #number of import vectors
-        # self.alpha_ = self.model.alpha #paramters of the decision hyperplane
-        return self
+            data_struct = mlab.struct('phi', X.T, 'c', y, 'phit', X.T, 'ct', y)
 
-    def fitCV(self, X, y, lambdas = np.r_[[np.exp(-12)], np.exp(np.arange(-10,-3))], sigmas = np.sqrt(1. / (2. * 2.**np.arange(-5, 3))), CV = 5):
-    	"""
-    	Fits the IVM performing cross validation on the matlab side. This is much faster than repeatedly transfering the data.
-    	"""
-    	self.classes_, y = np.unique(y, return_inverse=True)
-    	y = y + 1 #convert to matlab style indexing
-
-    	param_struct = mlab.struct('sigmas', sigmas, 'lambdas', lambdas, 'CV', CV, 'Nadd', self.Nadd, 'output', self.output, 
-    		'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
-    		'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
-
-    	data_struct = mlab.struct('phi', X.T, 'c', y, 'phit', X.T, 'ct', y)
-
-        result = mlab.ivm(data_struct, param_struct)
-        self.model = result.model
+            result = mlab.ivm(data_struct, param_struct)
+            self.model = result.model
 
         return self
 
@@ -153,7 +146,7 @@ class IVM(BaseEstimator, ClassifierMixin):
         return probs
 
     def predict_log_proba(self, X):
-    	return np.log(self.predict_proba(X))
+        return np.log(self.predict_proba(X))
 
     def predict(self, X):
-    	return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]

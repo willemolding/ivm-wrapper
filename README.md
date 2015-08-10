@@ -7,7 +7,7 @@ Install
 -------
 
 This assumes the following:
-- you already have installed the MATLAB engine for python (http://au.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html)
+- you already have installed mlabwrap (http://mlabwrap.sourceforge.net/)
 - The Matlab executable is on your path
 - You have configured mex to work correctly
 

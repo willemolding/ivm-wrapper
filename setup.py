@@ -17,7 +17,7 @@ setup(
     author_email = "willemolding@gmail.com",
     description = ("Python wrappers for the Matlab code for the Import Vector Machine (IVM) classifier from Freie University"),
     packages=['ivm'],
-    install_requires=['scikit-learn', 'matlabengineforpython'],
+    install_requires=['scikit-learn', 'mlabwrap'],
     include_package_data=True,
     cmdclass={
         'install': CustomInstallCommand,

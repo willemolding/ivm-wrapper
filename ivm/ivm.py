@@ -23,7 +23,7 @@ class IVM(BaseEstimator, ClassifierMixin):
     _lambda : float, optional
     	regularization paramter
 
-    nadd : int or inf, optional
+    Nadd : int or inf, optional
     	maximum number of points tested for adding to the subset (inf takes all points)
 
     output : int (0 or 1), optional
@@ -77,12 +77,12 @@ class IVM(BaseEstimator, ClassifierMixin):
 
     """
 
-    def __init__(self, sigma = 0.2, _lambda = np.exp(-15), nadd = 150, output = 0, maxIter = np.inf,
+    def __init__(self, sigma = 0.2, _lambda = np.exp(-15), Nadd = 150, output = 0, maxIter = np.inf,
                 epsilon = 0.001, delta_k = 1, tempInt = 0.95, epsilon_back = 0.001, flyComputeK = 0,
                 deselect = 0):
         self.sigma = sigma
         self._lambda = _lambda
-        self.nadd = nadd
+        self.Nadd = Nadd
         self.output = output
         self.maxIter = maxIter
         self.epsilon = epsilon
@@ -116,11 +116,11 @@ class IVM(BaseEstimator, ClassifierMixin):
     	self.classes_, y = np.unique(y, return_inverse=True)
     	y = y + 1 #convert to matlab style indexing
 
-    	ml_struct = mlab.struct('sigma', self.sigma, 'lambda', self._lambda, 'nadd', self.nadd, 'output', self.output, 
+    	param_struct = mlab.struct('sigma', self.sigma, 'lambda', self._lambda, 'Nadd', self.Nadd, 'output', self.output, 
     		'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
     		'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
 
-        self.model = mlab.ivm_learn(X.T, y.reshape((-1,1)), ml_struct)
+        self.model = mlab.ivm_learn(X.T, y, param_struct)
 
         # set the attributes from training (getting these attributes is too slow)
         # self.import_ = self.model.S #the indices of the import vectors
@@ -128,8 +128,27 @@ class IVM(BaseEstimator, ClassifierMixin):
         # self.alpha_ = self.model.alpha #paramters of the decision hyperplane
         return self
 
+    def fitCV(self, X, y, lambdas = np.r_[[np.exp(-12)], np.exp(np.arange(-10,-3))], sigmas = np.sqrt(1. / (2. * 2.**np.arange(-5, 3))), CV = 5):
+    	"""
+    	Fits the IVM performing cross validation on the matlab side. This is much faster than repeatedly transfering the data.
+    	"""
+    	self.classes_, y = np.unique(y, return_inverse=True)
+    	y = y + 1 #convert to matlab style indexing
+
+    	param_struct = mlab.struct('sigmas', sigmas, 'lambdas', lambdas, 'CV', CV, 'Nadd', self.Nadd, 'output', self.output, 
+    		'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
+    		'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
+
+    	data_struct = mlab.struct('phi', X.T, 'c', y, 'phit', X.T, 'ct', y)
+
+        result = mlab.ivm(data_struct, param_struct)
+        self.model = result.model
+
+        return self
+
+
     def predict_proba(self, X):
-        result = mlab.ivm_predict(self.model, X.T, np.ones((X.shape[0],1))) #this may be inefficient
+        result = mlab.ivm_predict(self.model, X.T, np.ones(X.shape[0])) #this may be inefficient
         probs = np.array(result.P).T
         return probs
 

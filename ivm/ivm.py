@@ -1,8 +1,8 @@
 import os
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
-import matlab
-import matlab.engine
+
+from mlabwrap import mlab #if you get 'error cannot start Matlab(TM)' then install csh - 'sudo apt-get install csh'
 
 
 class IVM(BaseEstimator, ClassifierMixin):
@@ -92,16 +92,10 @@ class IVM(BaseEstimator, ClassifierMixin):
         self.flyComputeK = flyComputeK
         self.deselect = deselect
 
-    	self.engine = matlab.engine.start_matlab()
-
     	this_dir, this_filename = os.path.split(__file__)
     	src_dir = os.path.join(this_dir, "ivmSoftware4.3/src")
-    	self.engine.addpath(src_dir)
 
-    def _get_matlab_params_dict(self):
-    	params = self.get_params()
-    	params['lambda'] = params.pop('_lambda') #rename lambda as it is a keyword in python and cannot start with a _ in matlab
-    	return params
+    	mlab.addpath(src_dir)
 
     def fit(self, X, y):
     	"""
@@ -122,24 +116,21 @@ class IVM(BaseEstimator, ClassifierMixin):
     	self.classes_, y = np.unique(y, return_inverse=True)
     	y = y + 1 #convert to matlab style indexing
 
-    	X_mlarray = matlab.double(X.T.tolist())
-    	y_mlarray = matlab.double(y.tolist(), size=(y.size,1))
+    	ml_struct = mlab.struct('sigma', self.sigma, 'lambda', self._lambda, 'nadd', self.nadd, 'output', self.output, 
+    		'maxIter', self.maxIter, 'epsilon', self.epsilon, 'delta_k', self.delta_k, 'tempInt', self.tempInt,
+    		'epsilon_back', self.epsilon_back, 'flyComputeK', self.flyComputeK, 'deselect', self.deselect)
 
-        self.model = self.engine.ivm_learn(X_mlarray, y_mlarray,
-        									self._get_matlab_params_dict())
+        self.model = mlab.ivm_learn(X.T, y.reshape((-1,1)), ml_struct)
 
-        # set the attributes from training
-        self.import_ = self.model['S'] #the indices of the import vectors
-        self.n_import_ = self.model['nIV'] #number of import vectors
-        self.alpha_ = self.model['alpha'] #paramters of the decision hyperplane
+        # set the attributes from training (getting these attributes is too slow)
+        # self.import_ = self.model.S #the indices of the import vectors
+        # self.n_import_ = self.model.nIV #number of import vectors
+        # self.alpha_ = self.model.alpha #paramters of the decision hyperplane
         return self
 
     def predict_proba(self, X):
-    	X_mlarray = matlab.double(X.T.tolist())
-    	y_mlarray = self.engine.ones(X.shape[0],1)
-
-        result = self.engine.ivm_predict(self.model, X_mlarray, y_mlarray)
-        probs = np.array(result['P']).T
+        result = mlab.ivm_predict(self.model, X.T, np.ones((X.shape[0],1))) #this may be inefficient
+        probs = np.array(result.P).T
         return probs
 
     def predict_log_proba(self, X):

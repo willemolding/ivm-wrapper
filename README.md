@@ -25,6 +25,8 @@ A simple test on the iris dataset:
 
 	from sklearn import datasets
 	from sklearn.cross_validation import cross_val_score
-	
+	from ivm import IVM
+
 	data = datasets.load_iris()
-	print cross_val_score(self.clf, data.data, data.target)
+	clf = IVM()
+	print cross_val_score(clf, data.data, data.target)
